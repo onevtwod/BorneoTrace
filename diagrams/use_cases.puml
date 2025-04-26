@@ -1,0 +1,28 @@
+@startuml
+left to right direction
+
+actor Certifier as cert
+actor Producer as prod
+actor Consumer as cons
+actor "Logistics Provider" as log
+
+rectangle "Certification System" {
+  usecase "Mint Certificate NFT" as UC1
+  usecase "View Issued Certificates" as UC2
+  usecase "Mint Batch NFT" as UC3
+  usecase "Link Certificates to Batch" as UC4
+  usecase "Transfer Batch Ownership" as UC5
+  usecase "View Batch History" as UC6
+  usecase "Scan QR Code" as UC7
+  usecase "Verify Certificate" as UC8
+}
+
+cert --> UC1
+cert --> UC2
+prod --> UC3
+prod --> UC4
+prod --> UC5
+log --> UC5
+cons --> UC7
+cons --> UC8
+@enduml

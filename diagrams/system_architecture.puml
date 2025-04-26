@@ -1,0 +1,15 @@
+@startuml
+!include <C4/C4_Component>
+
+Container(frontend, "Frontend Application", "React.js", "User interface for all roles")
+Container(backend, "Backend API", "Node.js/Express", "Business logic and data management")
+Container(blockchain, "MasChain", "Blockchain", "Smart contracts and NFT storage")
+Container(storage, "Off-Chain Storage", "IPFS/Cloud", "Document and file storage")
+Container_Ext(wallet, "Wallet", "MetaMask/MasWallet", "User blockchain interaction")
+
+Rel(frontend, backend, "Uses", "HTTP/REST")
+Rel(frontend, wallet, "Interacts", "Web3")
+Rel(wallet, blockchain, "Transacts", "RPC")
+Rel(backend, blockchain, "Reads/Writes", "Web3")
+Rel(backend, storage, "Stores/Retrieves", "API")
+@enduml

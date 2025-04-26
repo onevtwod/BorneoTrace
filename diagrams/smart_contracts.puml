@@ -1,0 +1,45 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+class CertificateNFT {
+  - certId: string
+  - certType: string
+  - issuer: address
+  - validityPeriod: uint
+  - certifiedEntityId: string
+  - documentHash: string
+  + mint(certData)
+  + verify(): boolean
+  + isValid(): boolean
+}
+
+class BatchNFT {
+  - batchId: string
+  - creator: address
+  - productType: string
+  - quantity: uint
+  - unit: string
+  - timestamp: uint
+  - originInfo: string
+  - status: enum
+  - linkedCertificates: CertificateNFT[]
+  - currentOwner: address
+  + mint(batchData)
+  + transfer(newOwner)
+  + cancel()
+  + linkCertificate(certNFT)
+}
+
+class Registry {
+  - certifiers: mapping(address => bool)
+  - producers: mapping(address => bool)
+  + registerCertifier(address)
+  + registerProducer(address)
+  + verifyCertifier(address): boolean
+  + verifyProducer(address): boolean
+}
+
+Registry --> CertificateNFT: manages
+Registry --> BatchNFT: manages
+BatchNFT --> CertificateNFT: links to
+@enduml
