@@ -1,0 +1,283 @@
+name: Smart Contracts CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - 'contracts/**'
+      - '.github/workflows/smart-contracts.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths: 
+      - 'contracts/**'
+      - '.github/workflows/smart-contracts.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'mumbai'
+        type: choice
+        options:
+        - mumbai
+        - polygon
+
+env:
+  NODE_VERSION: '18'
+  SOLIDITY_VERSION: '0.8.28'
+
+jobs:
+  # Test and validate smart contracts
+  test:
+    name: Test Smart Contracts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: contracts/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Compile contracts
+      run: npm run compile
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Run test coverage
+      run: npm run test:coverage
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./contracts/coverage/lcov.info
+        flags: smart-contracts
+        name: smart-contracts-coverage
+    
+    - name: Run gas reports
+      run: npm run test:gas
+      env:
+        REPORT_GAS: true
+    
+    - name: Upload gas reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: gas-reports
+        path: ./contracts/gas-report.txt
+
+  # Security audit
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: contracts/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run Slither security analysis
+      uses: crytic/slither-action@v0.11.0
+      with:
+        target: ./contracts/contracts
+        slither-args: --config-file .slither.config.json || true
+    
+    - name: Run MythX security analysis
+      uses: ConsenSys/mythx-cli-action@v1.0.0
+      with:
+        api_key: ${{ secrets.MYTHX_API_KEY }}
+        mode: quick
+        target: ./contracts/contracts
+      continue-on-error: true
+
+  # Deploy to Mumbai testnet
+  deploy-mumbai:
+    name: Deploy to Mumbai Testnet
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+    needs: [test, security]
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    environment: mumbai-testnet
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: contracts/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Compile contracts
+      run: npm run compile
+    
+    - name: Deploy to Mumbai
+      run: npm run deploy:mumbai
+      env:
+        PRIVATE_KEY: ${{ secrets.MUMBAI_PRIVATE_KEY }}
+        POLYGON_MUMBAI_RPC: ${{ secrets.POLYGON_MUMBAI_RPC }}
+        POLYGONSCAN_API_KEY: ${{ secrets.POLYGONSCAN_API_KEY }}
+    
+    - name: Verify contracts on Mumbai
+      run: npm run verify:mumbai
+      env:
+        POLYGONSCAN_API_KEY: ${{ secrets.POLYGONSCAN_API_KEY }}
+      continue-on-error: true
+    
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: mumbai-deployment
+        path: |
+          ./contracts/deployments/mumbai.json
+          ./contracts/artifacts/
+          ./borneo-trace-app/src/config/contracts.ts
+
+  # Deploy to Polygon mainnet
+  deploy-polygon:
+    name: Deploy to Polygon Mainnet
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'polygon')
+    environment: polygon-mainnet
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: contracts/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Compile contracts
+      run: npm run compile
+    
+    - name: Deploy to Polygon
+      run: npm run deploy:polygon
+      env:
+        PRIVATE_KEY: ${{ secrets.POLYGON_PRIVATE_KEY }}
+        POLYGON_MAINNET_RPC: ${{ secrets.POLYGON_MAINNET_RPC }}
+        POLYGONSCAN_API_KEY: ${{ secrets.POLYGONSCAN_API_KEY }}
+    
+    - name: Verify contracts on Polygon
+      run: npm run verify:polygon
+      env:
+        POLYGONSCAN_API_KEY: ${{ secrets.POLYGONSCAN_API_KEY }}
+      continue-on-error: true
+    
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: polygon-deployment
+        path: |
+          ./contracts/deployments/polygon.json
+          ./contracts/artifacts/
+          ./borneo-trace-app/src/config/contracts.ts
+
+  # Update frontend with new contract addresses
+  update-frontend:
+    name: Update Frontend Contract Addresses
+    runs-on: ubuntu-latest
+    needs: [deploy-mumbai, deploy-polygon]
+    if: always() && (needs.deploy-mumbai.result == 'success' || needs.deploy-polygon.result == 'success')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Download deployment artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: ./artifacts
+    
+    - name: Update frontend configuration
+      run: |
+        # Update contract addresses in frontend
+        if [ -f "./artifacts/mumbai-deployment/borneo-trace-app/src/config/contracts.ts" ]; then
+          cp ./artifacts/mumbai-deployment/borneo-trace-app/src/config/contracts.ts ./borneo-trace-app/src/config/contracts.ts
+          echo "Updated frontend with Mumbai contract addresses"
+        fi
+        
+        if [ -f "./artifacts/polygon-deployment/borneo-trace-app/src/config/contracts.ts" ]; then
+          cp ./artifacts/polygon-deployment/borneo-trace-app/src/config/contracts.ts ./borneo-trace-app/src/config/contracts.ts
+          echo "Updated frontend with Polygon contract addresses"
+        fi
+    
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add borneo-trace-app/src/config/contracts.ts
+        git commit -m "Update contract addresses after deployment" || exit 0
+        git push
+
+  # Notify deployment status
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-mumbai, deploy-polygon, update-frontend]
+    if: always()
+    
+    steps:
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#borneotrace-deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+      if: always()
+    
+    - name: Create deployment summary
+      run: |
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Mumbai Deployment**: ${{ needs.deploy-mumbai.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Polygon Deployment**: ${{ needs.deploy-polygon.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend Update**: ${{ needs.update-frontend.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Contract Addresses" >> $GITHUB_STEP_SUMMARY
+        echo "Check the artifacts for updated contract addresses." >> $GITHUB_STEP_SUMMARY

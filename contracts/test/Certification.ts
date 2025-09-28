@@ -17,10 +17,10 @@ describe("Certification System", function () {
     // Get signers
     [owner, certifier, producer, verifier, consumer] = await ethers.getSigners();
 
-    // Deploy Registry
-    const Registry = await ethers.getContractFactory("Registry");
-    registry = await Registry.deploy();
-    await registry.deployed();
+    // Deploy Deployer
+    const Deployer = await ethers.getContractFactory("Deployer");
+    registry = await Deployer.deploy();
+    await registry.waitForDeployment();
 
     // Deploy contracts through Registry
     await registry.deployContracts();
@@ -73,7 +73,7 @@ describe("Certification System", function () {
 
       const tokenId = 1; // First token
       const certificate = await certificateNFT.getCertificate(tokenId);
-      
+
       expect(certificate.certIdString).to.equal(certIdString);
       expect(certificate.certType).to.equal(certType);
       expect(certificate.issuer).to.equal(certifier.address);
@@ -133,10 +133,10 @@ describe("Certification System", function () {
       );
 
       const batchId = 1; // First batch
-      
+
       // Verify batch
       await batchNFT.connect(verifier).verifyBatch(batchId);
-      
+
       const batch = await batchNFT.getBatch(batchId);
       expect(batch.batchId).to.equal("BATCH-001");
       expect(batch.productType).to.equal("Palm Oil");
@@ -159,18 +159,18 @@ describe("Certification System", function () {
         [certificateId],
         "ipfs://QmAbc..."
       );
-      
+
       const batchId = 1;
       await batchNFT.connect(verifier).verifyBatch(batchId);
-      
+
       // Mark as in transit
       await batchNFT.connect(producer).markAsInTransit(batchId);
-      
+
       // Transfer to consumer
       await batchNFT.connect(producer).transferBatch(batchId, consumer.address);
-      
+
       expect(await batchNFT.ownerOf(batchId)).to.equal(consumer.address);
-      
+
       const batch = await batchNFT.getBatch(batchId);
       expect(batch.status).to.equal(3); // Received
       expect(batch.currentOwner).to.equal(consumer.address);
@@ -188,13 +188,13 @@ describe("Certification System", function () {
         [certificateId],
         "ipfs://QmAbc..."
       );
-      
+
       const batchId = 1;
       await batchNFT.connect(verifier).verifyBatch(batchId);
-      
+
       // Cancel batch
       await batchNFT.connect(producer).cancelBatch(batchId, "Quality issues");
-      
+
       const batch = await batchNFT.getBatch(batchId);
       expect(batch.status).to.equal(4); // Cancelled
     });

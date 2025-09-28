@@ -43,11 +43,36 @@ const Web3Context = createContext<Web3ContextType>({
   error: null,
 });
 
-// Default contract addresses - replace with actual deployed addresses
+// Default contract addresses for Polygon Mumbai testnet
 const DEFAULT_CONTRACT_ADDRESSES: ContractAddresses = {
-  registry: '0x5FbDB2315678afecb367f032d93F642f64180aa3', // Example address
-  certificateNFT: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // Example address
-  batchNFT: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', // Example address
+  registry: '0x0000000000000000000000000000000000000000', // Will be updated after deployment
+  certificateNFT: '0x0000000000000000000000000000000000000000', // Will be updated after deployment
+  batchNFT: '0x0000000000000000000000000000000000000000', // Will be updated after deployment
+};
+
+// Polygon network configuration
+const POLYGON_CONFIG = {
+  chainId: 137, // Polygon mainnet
+  chainName: 'Polygon Mainnet',
+  rpcUrls: ['https://polygon-rpc.com'],
+  blockExplorerUrls: ['https://polygonscan.com'],
+  nativeCurrency: {
+    name: 'MATIC',
+    symbol: 'MATIC',
+    decimals: 18
+  }
+};
+
+const MUMBAI_CONFIG = {
+  chainId: 80001, // Mumbai testnet
+  chainName: 'Polygon Mumbai',
+  rpcUrls: ['https://rpc-mumbai.maticvigil.com'],
+  blockExplorerUrls: ['https://mumbai.polygonscan.com'],
+  nativeCurrency: {
+    name: 'MATIC',
+    symbol: 'MATIC',
+    decimals: 18
+  }
 };
 
 export const Web3Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -161,7 +186,30 @@ export const Web3Provider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAccount(account);
       setChainId(network.chainId);
 
-      // Use default addresses for now
+      // Check if we're on the correct network
+      if (network.chainId !== 137 && network.chainId !== 80001) {
+        // Request network switch to Polygon
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x89' }], // Polygon mainnet
+          });
+        } catch (switchError: any) {
+          // If network doesn't exist, add it
+          if (switchError.code === 4902) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [POLYGON_CONFIG],
+              });
+            } catch (addError) {
+              console.error('Failed to add Polygon network:', addError);
+            }
+          }
+        }
+      }
+
+      // Use default addresses for now (will be updated after deployment)
       const addresses = DEFAULT_CONTRACT_ADDRESSES;
       setContractAddresses(addresses);
 

@@ -1,0 +1,260 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - 'borneo-trace-app/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths: 
+      - 'borneo-trace-app/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Test and build frontend
+  test-and-build:
+    name: Test and Build Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./borneo-trace-app
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: borneo-trace-app/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linting
+      run: npm run lint
+    
+    - name: Run type checking
+      run: npx tsc --noEmit
+    
+    - name: Run unit tests
+      run: npm test -- --coverage --watchAll=false
+      env:
+        CI: true
+    
+    - name: Upload test coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./borneo-trace-app/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+    
+    - name: Build for production
+      run: npm run build
+      env:
+        NODE_ENV: production
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-build
+        path: ./borneo-trace-app/dist/
+        retention-days: 30
+
+  # Deploy to staging (Vercel)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-build
+        path: ./dist
+    
+    - name: Deploy to Vercel (Staging)
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        working-directory: ./borneo-trace-app
+        scope: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-args: '--prod=false'
+      env:
+        VERCEL_ENV: preview
+
+  # Deploy to production (Vercel)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-build
+        path: ./dist
+    
+    - name: Deploy to Vercel (Production)
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        working-directory: ./borneo-trace-app
+        scope: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-args: '--prod=true'
+      env:
+        VERCEL_ENV: production
+
+  # Run E2E tests
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
+    defaults:
+      run:
+        working-directory: ./borneo-trace-app
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: borneo-trace-app/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install Playwright
+      run: npx playwright install --with-deps
+    
+    - name: Run E2E tests
+      run: npx playwright test
+      env:
+        BASE_URL: ${{ needs.deploy-staging.result == 'success' && 'https://borneotrace-staging.vercel.app' || 'https://borneotrace.vercel.app' }}
+    
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report
+        path: ./borneo-trace-app/playwright-report/
+        retention-days: 7
+
+  # Security audit
+  security:
+    name: Frontend Security Audit
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    defaults:
+      run:
+        working-directory: ./borneo-trace-app
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: borneo-trace-app/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run npm audit
+      run: npm audit --audit-level moderate
+      continue-on-error: true
+    
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+      continue-on-error: true
+
+  # Performance testing
+  performance:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    
+    - name: Install Lighthouse CI
+      run: npm install -g @lhci/cli@0.12.x
+    
+    - name: Run Lighthouse CI
+      run: |
+        lhci autorun
+      env:
+        LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        LHCI_SERVER_URL: ${{ secrets.LHCI_SERVER_URL }}
+        LHCI_TOKEN: ${{ secrets.LHCI_TOKEN }}
+        LHCI_TARGET_URL: ${{ needs.deploy-staging.result == 'success' && 'https://borneotrace-staging.vercel.app' || 'https://borneotrace.vercel.app' }}
+      continue-on-error: true
+
+  # Notify deployment status
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production, e2e-tests, security, performance]
+    if: always()
+    
+    steps:
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#borneotrace-deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+      if: always()
+    
+    - name: Create deployment summary
+      run: |
+        echo "## Frontend Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Staging Deployment**: ${{ needs.deploy-staging.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Production Deployment**: ${{ needs.deploy-production.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **E2E Tests**: ${{ needs.e2e-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Security Audit**: ${{ needs.security.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Performance Tests**: ${{ needs.performance.result }}" >> $GITHUB_STEP_SUMMARY
