@@ -61,7 +61,7 @@ jobs:
       run: npm run test:coverage
     
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         file: ./contracts/coverage/lcov.info
         flags: smart-contracts

@@ -52,7 +52,7 @@ jobs:
         NODE_ENV: test
     
     - name: Upload test coverage
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         file: ./backend-api/coverage/lcov.info
         flags: backend
