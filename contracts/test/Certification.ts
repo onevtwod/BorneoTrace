@@ -1,12 +1,12 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Certification System", function () {
-  let registry: Contract;
-  let certificateNFT: Contract;
-  let batchNFT: Contract;
+  let registry: any;
+  let certificateNFT: any;
+  let batchNFT: any;
   let owner: SignerWithAddress;
   let certifier: SignerWithAddress;
   let producer: SignerWithAddress;
