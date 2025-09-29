@@ -27,7 +27,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -101,10 +101,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Download iOS build
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v5
       with:
         name: ios-build
         path: ./ios-build
@@ -131,10 +131,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Download Android build
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v5
       with:
         name: android-build
         path: ./android-build
@@ -160,7 +160,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -204,7 +204,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -246,7 +246,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Setup Node.js
       uses: actions/setup-node@v4
