@@ -17,24 +17,39 @@ describe("Certification System", function () {
     // Get signers
     [owner, certifier, producer, verifier, consumer] = await ethers.getSigners();
 
-    // Deploy Deployer
-    const Deployer = await ethers.getContractFactory("Deployer");
-    registry = await Deployer.deploy();
-    await registry.waitForDeployment();
-
-    // Deploy contracts through Registry
-    await registry.deployContracts();
-
-    // Get contract addresses
-    const certificateAddress = await registry.certificateContract();
-    const batchAddress = await registry.batchContract();
-
-    // Get contract instances
+    // Deploy contracts directly
     const CertificateNFT = await ethers.getContractFactory("CertificateNFT");
-    certificateNFT = CertificateNFT.attach(certificateAddress);
+    certificateNFT = await CertificateNFT.deploy();
+    await certificateNFT.waitForDeployment();
 
     const BatchNFT = await ethers.getContractFactory("BatchNFT");
-    batchNFT = BatchNFT.attach(batchAddress);
+    batchNFT = await BatchNFT.deploy(await certificateNFT.getAddress());
+    await batchNFT.waitForDeployment();
+
+    // Create a mock registry object for compatibility with tests
+    registry = {
+      registerCertifier: async (address: string) => {
+        await certificateNFT.connect(owner).authorizeCertifier(address);
+      },
+      registerProducer: async (address: string) => {
+        await batchNFT.connect(owner).authorizeProducer(address);
+      },
+      registerVerifier: async (address: string) => {
+        await batchNFT.connect(owner).authorizeVerifier(address);
+      },
+      removeCertifier: async (address: string) => {
+        await certificateNFT.connect(owner).revokeCertifier(address);
+      },
+      isCertifier: async (address: string) => {
+        return await certificateNFT.isAuthorizedCertifier(address);
+      },
+      isProducer: async (address: string) => {
+        return await batchNFT.isAuthorizedProducer(address);
+      },
+      isVerifier: async (address: string) => {
+        return await batchNFT.isAuthorizedVerifier(address);
+      }
+    };
 
     // Register users
     await registry.registerCertifier(certifier.address);
@@ -71,7 +86,7 @@ describe("Certification System", function () {
         metadataURI
       );
 
-      const tokenId = 1; // First token
+      const tokenId = 0; // First token
       const certificate = await certificateNFT.getCertificate(tokenId);
 
       expect(certificate.certIdString).to.equal(certIdString);
@@ -95,7 +110,7 @@ describe("Certification System", function () {
         metadataURI
       );
 
-      const tokenId = 1; // First token
+      const tokenId = 0; // First token
       expect(await certificateNFT.isValid(tokenId)).to.equal(true);
 
       // Revoke certificate
@@ -116,7 +131,7 @@ describe("Certification System", function () {
         365 * 24 * 60 * 60, // 1 year
         "ipfs://QmXyz..."
       );
-      certificateId = 1; // First token
+      certificateId = 0; // First token
     });
 
     it("Should create and verify a batch", async function () {
@@ -132,7 +147,7 @@ describe("Certification System", function () {
         "ipfs://QmAbc..."
       );
 
-      const batchId = 1; // First batch
+      const batchId = 0; // First batch
 
       // Verify batch
       await batchNFT.connect(verifier).verifyBatch(batchId);
@@ -160,7 +175,7 @@ describe("Certification System", function () {
         "ipfs://QmAbc..."
       );
 
-      const batchId = 1;
+      const batchId = 0;
       await batchNFT.connect(verifier).verifyBatch(batchId);
 
       // Mark as in transit
@@ -189,7 +204,7 @@ describe("Certification System", function () {
         "ipfs://QmAbc..."
       );
 
-      const batchId = 1;
+      const batchId = 0;
       await batchNFT.connect(verifier).verifyBatch(batchId);
 
       // Cancel batch

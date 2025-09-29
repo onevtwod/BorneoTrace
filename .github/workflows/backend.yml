@@ -298,8 +298,9 @@ jobs:
       with:
         status: ${{ job.status }}
         channel: '#borneotrace-deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         fields: repo,message,commit,author,action,eventName,ref,workflow
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
       if: always()
     
     - name: Create deployment summary

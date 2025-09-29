@@ -33,8 +33,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: mobile-app/package-lock.json
     
     - name: Install dependencies
       run: npm ci
@@ -168,8 +166,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: mobile-app/package-lock.json
     
     - name: Install dependencies
       run: npm ci
@@ -214,8 +210,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: mobile-app/package-lock.json
     
     - name: Install dependencies
       run: npm ci
@@ -258,8 +252,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: mobile-app/package-lock.json
     
     - name: Install dependencies
       run: npm ci
@@ -289,8 +281,9 @@ jobs:
       with:
         status: ${{ job.status }}
         channel: '#borneotrace-deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         fields: repo,message,commit,author,action,eventName,ref,workflow
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       if: always()
     
     - name: Create deployment summary
