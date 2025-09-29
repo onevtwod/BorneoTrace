@@ -52,7 +52,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload vulnerability reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: vulnerability-report-${{ matrix.project }}
@@ -103,7 +103,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload security audit reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: smart-contract-security-reports
@@ -191,7 +191,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload Docker scan results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: docker-security-scan
@@ -273,7 +273,7 @@ jobs:
         echo "Check the artifacts for detailed security analysis reports." >> security-report.md
     
     - name: Upload security report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-report
         path: security-report.md

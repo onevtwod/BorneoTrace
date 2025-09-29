@@ -80,14 +80,14 @@ jobs:
         ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     
     - name: Upload iOS build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ios-build
         path: ./mobile-app/ios/BorneoTrace.xcarchive
         retention-days: 30
     
     - name: Upload Android build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: android-build
         path: ./mobile-app/android/app/build/outputs/apk/release/
@@ -190,7 +190,7 @@ jobs:
       continue-on-error: true
     
     - name: Upload E2E test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: mobile-e2e-results
@@ -270,7 +270,7 @@ jobs:
         PERFORMANCE_BUDGET: 3000 # 3 seconds
     
     - name: Upload performance results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mobile-performance-results
         path: ./mobile-app/performance/results/
